@@ -8,7 +8,7 @@ device starts a task, soft-deleting one stops it.
 import asyncio
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from dotenv import load_dotenv
@@ -124,7 +124,7 @@ async def fetch_and_store(device: dict) -> dict:
     temperature = ((raw.get("temperature") or {}).get("tC"))
     mode = get_device_mode(device["id"])
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(UTC).replace(tzinfo=None)
     await database.insert_reading(
         user_id=device["user_id"], device_id=device["id"],
         timestamp=now, power_watts=apower, voltage=voltage,
@@ -195,7 +195,7 @@ async def _poll_loop(device_id: int, stop_event: asyncio.Event) -> None:
             logger.warning("Collector error (device %s): %s", device_id, exc)
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=POLL_INTERVAL)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
 
 

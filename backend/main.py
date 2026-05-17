@@ -8,12 +8,10 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -23,10 +21,20 @@ import database
 import encryption
 from auth import create_access_token, get_current_user, hash_password, verify_password
 from models import (
-    AddDeviceRequest, AlertConfigRequest, ModeCommand,
-    PowerLimitRequest, ScheduleRequest, ScriptCodeRequest,
-    ScriptCreateRequest, SwitchCommand, TimerRequest, Token,
-    UpdateDeviceRequest, UserLogin, UserRegister, UserResponse,
+    AddDeviceRequest,
+    AlertConfigRequest,
+    ModeCommand,
+    PowerLimitRequest,
+    ScheduleRequest,
+    ScriptCodeRequest,
+    ScriptCreateRequest,
+    SwitchCommand,
+    TimerRequest,
+    Token,
+    UpdateDeviceRequest,
+    UserLogin,
+    UserRegister,
+    UserResponse,
     WebhookRequest,
 )
 
@@ -101,14 +109,14 @@ async def _proxy(device: dict, method: str, params: dict | None = None) -> dict:
     try:
         return await collector.shelly_rpc(device, method, params or {})
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Shelly RPC {method} failed: {exc}")
+        raise HTTPException(status_code=502, detail=f"Shelly RPC {method} failed: {exc}") from exc
 
 
 async def _proxy_get(device: dict, method: str) -> dict:
     try:
         return await collector.shelly_rpc_get(device, method)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Shelly RPC {method} failed: {exc}")
+        raise HTTPException(status_code=502, detail=f"Shelly RPC {method} failed: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +192,7 @@ async def test_device(body: AddDeviceRequest, current_user: dict = Depends(get_c
             "fw": info.get("ver"),
         }
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Could not reach device: {exc}")
+        raise HTTPException(status_code=400, detail=f"Could not reach device: {exc}") from exc
 
 
 @app.post("/api/devices")
@@ -193,7 +201,7 @@ async def create_device(body: AddDeviceRequest, current_user: dict = Depends(get
         await collector.fetch_shelly_status(body.ip, body.password or "")
         info = await collector.fetch_shelly_info(body.ip, body.password or "")
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Could not reach device: {exc}")
+        raise HTTPException(status_code=400, detail=f"Could not reach device: {exc}") from exc
     encrypted_password = encryption.encrypt_password(body.password) if body.password else None
     try:
         device_id = await database.add_device(
@@ -202,10 +210,12 @@ async def create_device(body: AddDeviceRequest, current_user: dict = Depends(get
             equipment=body.equipment, icon=body.icon or "plug",
         )
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Could not add device: {exc}")
+        raise HTTPException(status_code=400, detail=f"Could not add device: {exc}") from exc
     meta: dict = {}
-    if info.get("gen") is not None: meta["shelly_gen"] = info["gen"]
-    if info.get("model"): meta["shelly_model"] = info["model"]
+    if info.get("gen") is not None:
+        meta["shelly_gen"] = info["gen"]
+    if info.get("model"):
+        meta["shelly_model"] = info["model"]
     if meta:
         await database.update_device(device_id, current_user["id"], **meta)
     collector.start_device_thread(device_id)
@@ -242,7 +252,8 @@ async def device_status(device_id: int, current_user: dict = Depends(get_current
     try:
         status = await collector.fetch_and_store(d)
         try:
-            ip = d["ip"]; pw = encryption.device_password(d)
+            ip = d["ip"]
+            pw = encryption.device_password(d)
             status["uptime"] = await collector.fetch_shelly_uptime(ip, pw)
         except Exception:
             status["uptime"] = None
@@ -250,7 +261,7 @@ async def device_status(device_id: int, current_user: dict = Depends(get_current
     except Exception:
         cached = collector.get_device_status(device_id)
         if not cached:
-            raise HTTPException(status_code=503, detail="Device unreachable and no cached data")
+            raise HTTPException(status_code=503, detail="Device unreachable and no cached data") from None
         return cached
 
 
@@ -261,7 +272,7 @@ async def device_switch(device_id: int, body: SwitchCommand, current_user: dict 
         await collector.shelly_switch_set(d, body.state)
         return {"ok": True, "state": body.state}
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Could not reach Shelly: {exc}")
+        raise HTTPException(status_code=502, detail=f"Could not reach Shelly: {exc}") from exc
 
 
 @app.post("/api/devices/{device_id}/mode")
@@ -282,9 +293,9 @@ async def device_mode_get(device_id: int, current_user: dict = Depends(get_curre
 @app.get("/api/devices/{device_id}/readings")
 async def device_readings(
     device_id: int,
-    from_dt: Optional[datetime] = Query(None, alias="from"),
-    to_dt: Optional[datetime] = Query(None, alias="to"),
-    mode: Optional[str] = Query(None),
+    from_dt: datetime | None = Query(None, alias="from"),
+    to_dt: datetime | None = Query(None, alias="to"),
+    mode: str | None = Query(None),
     limit: int = Query(5000, ge=1, le=50000),
     current_user: dict = Depends(get_current_user),
 ):
@@ -377,9 +388,9 @@ async def aggregate_insights(
 
 @app.get("/api/aggregate/readings")
 async def aggregate_readings(
-    from_dt: Optional[datetime] = Query(None, alias="from"),
-    to_dt: Optional[datetime] = Query(None, alias="to"),
-    mode: Optional[str] = Query(None),
+    from_dt: datetime | None = Query(None, alias="from"),
+    to_dt: datetime | None = Query(None, alias="to"),
+    mode: str | None = Query(None),
     limit: int = Query(5000, ge=1, le=50000),
     current_user: dict = Depends(get_current_user),
 ):
@@ -401,20 +412,21 @@ async def shelly_timer_set(device_id: int, body: TimerRequest,
         await collector.shelly_switch_set(d, body.on, toggle_after=body.duration_minutes * 60)
         return {"ok": True, "on": body.on, "duration_seconds": body.duration_minutes * 60}
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Could not set timer: {exc}")
+        raise HTTPException(status_code=502, detail=f"Could not set timer: {exc}") from exc
 
 
 @app.delete("/api/devices/{device_id}/shelly/timer")
 async def shelly_timer_cancel(device_id: int, current_user: dict = Depends(get_current_user)):
     d = await _get_owned_device(device_id, current_user["id"])
     try:
-        ip = d["ip"]; pw = encryption.device_password(d)
+        ip = d["ip"]
+        pw = encryption.device_password(d)
         raw = await collector.fetch_shelly_status(ip, pw)
         on = bool(raw.get("output", False))
         await collector.shelly_switch_set(d, on)
         return {"ok": True}
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Could not cancel timer: {exc}")
+        raise HTTPException(status_code=502, detail=f"Could not cancel timer: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -429,14 +441,14 @@ def _to_timespec(time_str: str, days: list[str]) -> str:
     try:
         hh, mm = time_str.split(":")
         hh, mm = int(hh), int(mm)
-    except Exception:
-        raise HTTPException(status_code=400, detail="time must be HH:MM")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="time must be HH:MM") from exc
     if not (0 <= hh < 24 and 0 <= mm < 60):
         raise HTTPException(status_code=400, detail="time out of range")
     try:
         day_nums = sorted({_DAY_MAP[d.lower()] for d in days}) if days else []
     except KeyError as e:
-        raise HTTPException(status_code=400, detail=f"unknown day: {e}")
+        raise HTTPException(status_code=400, detail=f"unknown day: {e}") from e
     dow = ",".join(str(d) for d in day_nums) if day_nums else "*"
     return f"0 {mm} {hh} * * {dow}"
 
@@ -447,7 +459,8 @@ def _from_timespec(timespec: str) -> dict | None:
         return None
     try:
         _, mn, hr, _, _, dow = parts
-        hh = int(hr); mm = int(mn)
+        hh = int(hr)
+        mm = int(mn)
     except Exception:
         return None
     if dow == "*":

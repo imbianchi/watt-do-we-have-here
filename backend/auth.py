@@ -1,12 +1,11 @@
 """JWT + password hashing + FastAPI auth dependency."""
 
 import os
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-import bcrypt
 from jose import JWTError, jwt
 
 import database
@@ -32,7 +31,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(data: dict) -> str:
     payload = data.copy()
-    payload["exp"] = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload["exp"] = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -40,7 +39,7 @@ def decode_token(token: str) -> dict:
     return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 
 
-async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> dict:
+async def get_current_user(token: str | None = Depends(oauth2_scheme)) -> dict:
     creds_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Not authenticated",
@@ -52,7 +51,7 @@ async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> dic
         payload = decode_token(token)
         user_id = int(payload.get("sub"))
     except (JWTError, ValueError, TypeError):
-        raise creds_exc
+        raise creds_exc from None
     user = await database.get_user_by_id(user_id)
     if not user:
         raise creds_exc

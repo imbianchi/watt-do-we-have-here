@@ -1,10 +1,8 @@
 """Pydantic request/response models + shared validators."""
 
 import re
-from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
-
 
 IP_RE = re.compile(
     r"^(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\."
@@ -53,7 +51,7 @@ class UserResponse(BaseModel):
     id: int
     email: str
     name: str
-    created_at: Optional[str] = None
+    created_at: str | None = None
 
 
 class Token(BaseModel):
@@ -76,10 +74,10 @@ class ModeCommand(BaseModel):
 class AddDeviceRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     ip: str
-    password: Optional[str] = Field(default=None, max_length=128)
-    location: Optional[str] = Field(default=None, max_length=100)
-    equipment: Optional[str] = Field(default=None, max_length=100)
-    icon: Optional[str] = Field(default="plug", max_length=50)
+    password: str | None = Field(default=None, max_length=128)
+    location: str | None = Field(default=None, max_length=100)
+    equipment: str | None = Field(default=None, max_length=100)
+    icon: str | None = Field(default="plug", max_length=50)
 
     @field_validator("ip")
     @classmethod
@@ -97,13 +95,13 @@ class AddDeviceRequest(BaseModel):
 
 
 class UpdateDeviceRequest(BaseModel):
-    name: Optional[str] = Field(default=None, max_length=100)
-    ip: Optional[str] = None
-    password: Optional[str] = Field(default=None, max_length=128)
-    location: Optional[str] = Field(default=None, max_length=100)
-    equipment: Optional[str] = Field(default=None, max_length=100)
-    icon: Optional[str] = Field(default=None, max_length=50)
-    active: Optional[bool] = None
+    name: str | None = Field(default=None, max_length=100)
+    ip: str | None = None
+    password: str | None = Field(default=None, max_length=128)
+    location: str | None = Field(default=None, max_length=100)
+    equipment: str | None = Field(default=None, max_length=100)
+    icon: str | None = Field(default=None, max_length=50)
+    active: bool | None = None
 
     @field_validator("ip")
     @classmethod
@@ -122,7 +120,7 @@ class AlertConfigRequest(BaseModel):
 
 
 class ScheduleRequest(BaseModel):
-    label: Optional[str] = Field(default=None, max_length=100)
+    label: str | None = Field(default=None, max_length=100)
     action: str = Field(min_length=1, max_length=10)
     time: str = Field(pattern=r"^\d{1,2}:\d{2}$")
     days: list[str]
@@ -137,7 +135,7 @@ class TimerRequest(BaseModel):
 class WebhookRequest(BaseModel):
     event: str = Field(min_length=1, max_length=64)
     urls: list[str] = Field(min_length=1, max_length=5)
-    name: Optional[str] = Field(default=None, max_length=100)
+    name: str | None = Field(default=None, max_length=100)
     enable: bool = True
 
 

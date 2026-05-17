@@ -1,0 +1,21 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["migrations", ".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line-too-long — handled by formatter
+    "B008",  # function call in default arg (FastAPI Depends pattern)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]  # imports after module-level env setup

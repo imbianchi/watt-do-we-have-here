@@ -7,10 +7,10 @@ that operate across users.
 
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Any
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
-from sqlalchemy import and_, delete, distinct, func, or_, select, text, update
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from models_db import Alert, AlertConfig, Base, Device, Reading, ShellyScheduleCache, User
@@ -61,13 +61,13 @@ def _reading_dict(r: Reading) -> dict:
 # Users
 # ---------------------------------------------------------------------------
 
-async def get_user_by_email(email: str) -> Optional[dict]:
+async def get_user_by_email(email: str) -> dict | None:
     async with session_scope() as s:
         row = (await s.execute(select(User).where(User.email == email.lower()))).scalar_one_or_none()
         return _user_dict(row) if row else None
 
 
-async def get_user_by_id(user_id: int) -> Optional[dict]:
+async def get_user_by_id(user_id: int) -> dict | None:
     async with session_scope() as s:
         row = (await s.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
         return _user_dict(row) if row else None
@@ -94,8 +94,8 @@ def _user_dict(u: User) -> dict:
 # Devices
 # ---------------------------------------------------------------------------
 
-async def add_device(user_id: int, name: str, ip: str, password: Optional[str] = None,
-                     location: Optional[str] = None, equipment: Optional[str] = None,
+async def add_device(user_id: int, name: str, ip: str, password: str | None = None,
+                     location: str | None = None, equipment: str | None = None,
                      icon: str = "plug") -> int:
     async with session_scope() as s:
         d = Device(user_id=user_id, name=name, ip=ip, password=password,
@@ -116,7 +116,7 @@ async def get_devices(user_id: int, include_inactive: bool = False) -> list[dict
         return [_device_dict(d) for d in rows]
 
 
-async def get_device(device_id: int, user_id: int) -> Optional[dict]:
+async def get_device(device_id: int, user_id: int) -> dict | None:
     async with session_scope() as s:
         row = (await s.execute(
             select(Device).where(Device.id == device_id, Device.user_id == user_id)
@@ -124,7 +124,7 @@ async def get_device(device_id: int, user_id: int) -> Optional[dict]:
         return _device_dict(row) if row else None
 
 
-async def get_device_internal(device_id: int) -> Optional[dict]:
+async def get_device_internal(device_id: int) -> dict | None:
     """For background tasks — no user scope check."""
     async with session_scope() as s:
         row = (await s.execute(select(Device).where(Device.id == device_id))).scalar_one_or_none()
@@ -170,7 +170,7 @@ async def delete_device(device_id: int, user_id: int) -> None:
 # Readings
 # ---------------------------------------------------------------------------
 
-async def insert_reading(user_id: int, device_id: Optional[int], timestamp: datetime,
+async def insert_reading(user_id: int, device_id: int | None, timestamp: datetime,
                          power_watts: float, voltage: float, current_amps: float,
                          total_kwh: float, switch_state: bool, mode: str) -> None:
     async with session_scope() as s:
@@ -182,9 +182,9 @@ async def insert_reading(user_id: int, device_id: Optional[int], timestamp: date
         await s.commit()
 
 
-async def get_readings(user_id: int, from_dt: Optional[datetime] = None,
-                       to_dt: Optional[datetime] = None, mode: Optional[str] = None,
-                       limit: int = 5000, device_id: Optional[int] = None) -> list[dict]:
+async def get_readings(user_id: int, from_dt: datetime | None = None,
+                       to_dt: datetime | None = None, mode: str | None = None,
+                       limit: int = 5000, device_id: int | None = None) -> list[dict]:
     async with session_scope() as s:
         q = select(Reading).where(Reading.user_id == user_id)
         if device_id is not None:
@@ -200,7 +200,7 @@ async def get_readings(user_id: int, from_dt: Optional[datetime] = None,
         return [_reading_dict(r) for r in rows]
 
 
-async def get_latest_reading(user_id: int, device_id: Optional[int] = None) -> Optional[dict]:
+async def get_latest_reading(user_id: int, device_id: int | None = None) -> dict | None:
     async with session_scope() as s:
         q = select(Reading).where(Reading.user_id == user_id)
         if device_id is not None:
@@ -211,7 +211,7 @@ async def get_latest_reading(user_id: int, device_id: Optional[int] = None) -> O
 
 
 async def get_insights(user_id: int, price_per_kwh: float = 0.22,
-                       device_id: Optional[int] = None) -> dict:
+                       device_id: int | None = None) -> dict:
     """Aggregate insights — uses raw SQL for the complex grouping queries."""
 
     def _filter(extra: str = "") -> tuple[str, dict]:
@@ -239,8 +239,8 @@ async def get_insights(user_id: int, price_per_kwh: float = 0.22,
         total_kwh = (total_row[0] if total_row else 0.0) or 0.0
 
         # Date helpers — formatted as ISO strings so they work in SQLite + Postgres
-        today_str = datetime.now(timezone.utc).date().isoformat()
-        month_str = datetime.now(timezone.utc).strftime("%Y-%m")
+        today_str = datetime.now(UTC).date().isoformat()
+        month_str = datetime.now(UTC).strftime("%Y-%m")
 
         # Today kWh
         today_where, today_params = _filter("DATE(timestamp) = :day")
@@ -338,7 +338,7 @@ async def get_insights(user_id: int, price_per_kwh: float = 0.22,
         days_of_data = days_row[0] if days_row else 0
 
         # Same period last month
-        today_d = datetime.now(timezone.utc).date()
+        today_d = datetime.now(UTC).date()
         first_this = today_d.replace(day=1)
         last_prev = first_this - timedelta(days=1)
         same_dom = last_prev.replace(day=min(today_d.day, last_prev.day))
@@ -386,7 +386,7 @@ async def get_insights(user_id: int, price_per_kwh: float = 0.22,
 # Alerts
 # ---------------------------------------------------------------------------
 
-async def get_alert_config(device_id: int, user_id: int) -> Optional[dict]:
+async def get_alert_config(device_id: int, user_id: int) -> dict | None:
     async with session_scope() as s:
         row = (await s.execute(
             select(AlertConfig).where(AlertConfig.device_id == device_id, AlertConfig.user_id == user_id)
@@ -399,7 +399,7 @@ async def get_alert_config(device_id: int, user_id: int) -> Optional[dict]:
                 "enabled": row.enabled}
 
 
-async def get_alert_config_internal(device_id: int) -> Optional[dict]:
+async def get_alert_config_internal(device_id: int) -> dict | None:
     """For collector — no user scope."""
     async with session_scope() as s:
         row = (await s.execute(
@@ -451,7 +451,7 @@ async def resolve_alert(alert_id: int, resolved_at: datetime) -> None:
         await s.commit()
 
 
-async def get_alerts(user_id: int, device_id: Optional[int] = None, limit: int = 100) -> list[dict]:
+async def get_alerts(user_id: int, device_id: int | None = None, limit: int = 100) -> list[dict]:
     async with session_scope() as s:
         q = select(Alert).where(Alert.user_id == user_id)
         if device_id is not None:
@@ -467,7 +467,7 @@ async def get_alerts(user_id: int, device_id: Optional[int] = None, limit: int =
         } for a in rows]
 
 
-async def get_active_alert(device_id: int, user_id: int) -> Optional[dict]:
+async def get_active_alert(device_id: int, user_id: int) -> dict | None:
     async with session_scope() as s:
         row = (await s.execute(
             select(Alert).where(Alert.device_id == device_id, Alert.user_id == user_id,
@@ -502,9 +502,9 @@ async def get_schedules_cache(device_id: int, user_id: int) -> list[dict]:
 
 
 async def upsert_schedule_cache(device_id: int, user_id: int, shelly_job_id: int,
-                                label: Optional[str], timespec: str, action: str,
+                                label: str | None, timespec: str, action: str,
                                 enabled: bool) -> None:
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(UTC).replace(tzinfo=None)
     async with session_scope() as s:
         existing = (await s.execute(
             select(ShellyScheduleCache).where(

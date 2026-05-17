@@ -19,7 +19,6 @@ os.environ.setdefault("ENCRYPTION_KEY", "test-encryption-key")
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("ALLOWED_ORIGINS", "http://localhost:5173")
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
@@ -35,8 +34,8 @@ async def client(monkeypatch):
     for mod in ("main", "database", "collector", "auth"):
         sys.modules.pop(mod, None)
 
-    import database  # noqa: WPS433
     import collector  # noqa: WPS433
+    import database  # noqa: WPS433
     import main  # noqa: WPS433
 
     # Stub Shelly network calls so tests don't need a real device
