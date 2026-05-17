@@ -27,7 +27,7 @@ jobs:
         env:
           DATABASE_URL: sqlite+aiosqlite:///./test.db
           SECRET_KEY: test-secret-key-32-bytes-minimum-1234567890abcd
-          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          ENCRYPTION_KEY: test-encryption-key-not-used-in-prod
           ENVIRONMENT: test
         run: python -m pytest tests/ -v
 

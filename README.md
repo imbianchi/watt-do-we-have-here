@@ -146,47 +146,41 @@ The codebase makes no assumption about which path you pick. It just needs a Post
 
 ## Deployment
 
-The default cloud path is **Vercel** (frontend) + **Fly.io** (backend) + **Supabase** (Postgres). Backend is containerised — `backend/Dockerfile` and `backend/fly.toml` are committed. A `.github/workflows/deploy.yml` redeploys the backend to Fly on every push to `main`.
+The default cloud path is **Vercel** (frontend) + **Fly.io** (backend) + **Supabase** (Postgres). Backend is containerised (`backend/Dockerfile`, `backend/fly.toml`). `.github/workflows/deploy.yml` redeploys to Fly on every push to `main`.
 
-### 1. Supabase (Postgres)
+Three scripts in `scripts/` automate everything that doesn't require browser/OAuth login:
 
-1. Create a project at <https://supabase.com>.
-2. Settings → Database → **Connection string** → URI. Looks like `postgresql://postgres:[password]@db.xxx.supabase.co:5432/postgres`.
-3. Replace the scheme so SQLAlchemy/asyncpg picks it up: `postgresql+asyncpg://postgres:[password]@db.xxx.supabase.co:5432/postgres`. Save it for step 2.
+| Script | When to run | What it does |
+|---|---|---|
+| `scripts/deploy-init.sh` | First deploy | Creates the Fly app, generates `SECRET_KEY` + `ENCRYPTION_KEY` (saves them in `~/.watt-deploy-secrets`, chmod 600), pushes secrets, runs `flyctl deploy`. Idempotent. |
+| `scripts/update-cors.sh` | After Vercel domain is known | Updates `ALLOWED_ORIGINS` on Fly with one or more Vercel URLs. |
+| `scripts/setup-gh-cd.sh` | One-time | Pulls `flyctl auth token` and stores it as the `FLY_API_TOKEN` GitHub secret. |
 
-### 2. Fly.io (backend)
+### Walkthrough
 
-```bash
-brew install flyctl                       # or: curl -L https://fly.io/install.sh | sh
-flyctl auth signup                        # or login if you already have an account
-cd backend
-# Edit `app = "watt-api"` in fly.toml to something unique to you.
-flyctl apps create <your-app-name>
+1. **Supabase** — create a project at <https://supabase.com>, copy the URI under Settings → Database → Connection string. Swap the scheme to `postgresql+asyncpg://...`. Export it:
+   ```bash
+   export DATABASE_URL='postgresql+asyncpg://postgres:SUA_SENHA@db.xxx.supabase.co:5432/postgres'
+   ```
 
-# Generate prod secrets locally and push them to Fly:
-SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
-ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
-flyctl secrets set \
-  DATABASE_URL='postgresql+asyncpg://postgres:[password]@db.xxx.supabase.co:5432/postgres' \
-  SECRET_KEY="$SECRET_KEY" \
-  ENCRYPTION_KEY="$ENCRYPTION_KEY" \
-  ALLOWED_ORIGINS='https://your-frontend.vercel.app'
+2. **Fly.io login** — `flyctl auth signup` (or login). Then:
+   ```bash
+   ./scripts/deploy-init.sh
+   ```
+   The script creates the app (default name in `fly.toml` is `watt-do-we-have-here` — rename there if you want), generates production secrets, sets them on Fly, and deploys. Alembic runs automatically on container start. After ~2 min the API is live at `https://<app>.fly.dev/api/health`.
 
-flyctl deploy
-```
+3. **Vercel** — import the repo at <https://vercel.com/new> → root `frontend/` → add env var `VITE_API_URL=https://<app>.fly.dev` → deploy.
 
-The first deploy runs `alembic upgrade head` automatically (see the Dockerfile `CMD`). Health check hits `/api/health`. After deploy, the API is at `https://<your-app-name>.fly.dev`.
+4. **CORS** — once Vercel gives you the URL(s):
+   ```bash
+   ./scripts/update-cors.sh https://watt-xxx.vercel.app
+   ```
 
-To enable auto-deploy from GitHub: `flyctl auth token` → paste into the repo's GitHub **Settings → Secrets → Actions** as `FLY_API_TOKEN`. Push to `main` now triggers `.github/workflows/deploy.yml`.
-
-### 3. Vercel (frontend)
-
-1. Import the repo at <https://vercel.com/new>.
-2. **Root directory** → `frontend`. Framework auto-detected (Vite).
-3. **Environment variables** → `VITE_API_URL = https://<your-app-name>.fly.dev`.
-4. Deploy. Vercel auto-rebuilds on every push to `main`.
-
-Update the Fly secret `ALLOWED_ORIGINS` to match whatever Vercel domain you end up with (preview and prod), comma-separated.
+5. **Auto-deploy from GitHub** — `gh auth login` then:
+   ```bash
+   ./scripts/setup-gh-cd.sh
+   ```
+   Every push to `main` now triggers `.github/workflows/deploy.yml`.
 
 ### Single-box self-host
 

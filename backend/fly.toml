@@ -2,7 +2,7 @@
 # Secrets (DATABASE_URL, SECRET_KEY, ENCRYPTION_KEY, ALLOWED_ORIGINS) are set
 # with `flyctl secrets set ...` — never commit them here.
 
-app = "watt-api"
+app = "watt-do-we-have-here"
 primary_region = "gru"
 
 [build]
