@@ -39,7 +39,7 @@ def upgrade() -> None:
         sa.Column("location", sa.String(100)),
         sa.Column("equipment", sa.String(100)),
         sa.Column("icon", sa.String(50), nullable=False, server_default="plug"),
-        sa.Column("active", sa.Boolean, nullable=False, server_default=sa.text("1")),
+        sa.Column("active", sa.Boolean, nullable=False, server_default=sa.text("true")),
         sa.Column("shelly_gen", sa.Integer, nullable=False, server_default="3"),
         sa.Column("shelly_model", sa.String(100)),
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now(), nullable=False),
@@ -71,7 +71,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Integer, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("threshold_watts", sa.Float, nullable=False),
         sa.Column("duration_minutes", sa.Integer, nullable=False),
-        sa.Column("enabled", sa.Boolean, nullable=False, server_default=sa.text("1")),
+        sa.Column("enabled", sa.Boolean, nullable=False, server_default=sa.text("true")),
     )
     op.create_index("ix_alert_configs_user_id", "alert_configs", ["user_id"])
 
@@ -97,7 +97,7 @@ def upgrade() -> None:
         sa.Column("label", sa.String(100)),
         sa.Column("timespec", sa.String(50)),
         sa.Column("action", sa.String(10)),
-        sa.Column("enabled", sa.Boolean, nullable=False, server_default=sa.text("1")),
+        sa.Column("enabled", sa.Boolean, nullable=False, server_default=sa.text("true")),
         sa.Column("synced_at", sa.DateTime),
     )
     op.create_index("ix_shelly_schedules_user_id", "shelly_schedules_cache", ["user_id"])
