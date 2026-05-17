@@ -6,6 +6,7 @@ and filter every query by user_id. Shelly device passwords are encrypted at rest
 
 import logging
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
 
@@ -35,7 +36,16 @@ logger = logging.getLogger(__name__)
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
-app = FastAPI(title="Watt Do We Have Here", version="3.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if ENVIRONMENT != "production":
+        await database.init_db()
+    await collector.start_collector()
+    yield
+
+
+app = FastAPI(title="Watt Do We Have Here", version="3.0.0", lifespan=lifespan)
 
 # --- Rate limiting ---
 limiter = Limiter(key_func=get_remote_address)
@@ -62,14 +72,6 @@ async def security_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
-
-
-@app.on_event("startup")
-async def on_startup() -> None:
-    # In dev/tests this creates the schema; in prod alembic owns migrations.
-    if ENVIRONMENT != "production":
-        await database.init_db()
-    await collector.start_collector()
 
 
 # ---------------------------------------------------------------------------
