@@ -21,7 +21,13 @@ SECRETS_FILE="$HOME/.watt-deploy-secrets"
 # --- 1. Sanidade ---------------------------------------------------------------
 command -v flyctl >/dev/null || { echo "❌ flyctl não encontrado no PATH"; exit 1; }
 flyctl auth whoami >/dev/null 2>&1 || { echo "❌ Rode primeiro: flyctl auth login"; exit 1; }
-: "${DATABASE_URL:?❌ Exporte DATABASE_URL com a connection string Supabase}"
+
+# DATABASE_URL: usa env var se setada, senão tenta ler do arquivo de secrets
+if [[ -z "${DATABASE_URL:-}" && -f "$SECRETS_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source <(grep -E '^DATABASE_URL=' "$SECRETS_FILE")
+fi
+: "${DATABASE_URL:?❌ Exporte DATABASE_URL ou adicione no $SECRETS_FILE}"
 
 APP_NAME="$(awk -F'"' '/^app = /{print $2}' "$ROOT/backend/fly.toml")"
 echo "▶ App Fly: $APP_NAME"
