@@ -238,13 +238,14 @@ async def get_insights(user_id: int, price_per_kwh: float = 0.22,
         ), p_base)).first()
         total_kwh = (total_row[0] if total_row else 0.0) or 0.0
 
-        # Date helpers — formatted as ISO strings so they work in SQLite + Postgres
-        today_str = datetime.now(UTC).date().isoformat()
+        # Date helpers — pass `date` objects, not ISO strings. asyncpg refuses
+        # to coerce strings into Postgres DATE; aiosqlite accepts both.
+        today_d = datetime.now(UTC).date()
         month_str = datetime.now(UTC).strftime("%Y-%m")
 
         # Today kWh
         today_where, today_params = _filter("DATE(timestamp) = :day")
-        today_params["day"] = today_str
+        today_params["day"] = today_d
         today_row = (await s.execute(text(
             f"SELECT MAX(total_kwh) - MIN(total_kwh) FROM readings WHERE {today_where}"
         ), today_params)).first()
@@ -338,22 +339,21 @@ async def get_insights(user_id: int, price_per_kwh: float = 0.22,
         days_of_data = days_row[0] if days_row else 0
 
         # Same period last month
-        today_d = datetime.now(UTC).date()
         first_this = today_d.replace(day=1)
         last_prev = first_this - timedelta(days=1)
         same_dom = last_prev.replace(day=min(today_d.day, last_prev.day))
         last_month_start = same_dom.replace(day=1)
 
         tklm_where, tklm_params = _filter("DATE(timestamp) = :day")
-        tklm_params["day"] = same_dom.isoformat()
+        tklm_params["day"] = same_dom
         tklm_row = (await s.execute(text(
             f"SELECT MAX(total_kwh) - MIN(total_kwh) FROM readings WHERE {tklm_where}"
         ), tklm_params)).first()
         today_kwh_last_month = (tklm_row[0] if tklm_row else 0.0) or 0.0
 
         mtd_where, mtd_params = _filter("DATE(timestamp) >= :d1 AND DATE(timestamp) <= :d2")
-        mtd_params["d1"] = last_month_start.isoformat()
-        mtd_params["d2"] = same_dom.isoformat()
+        mtd_params["d1"] = last_month_start
+        mtd_params["d2"] = same_dom
         mtd_row = (await s.execute(text(
             f"SELECT MAX(total_kwh) - MIN(total_kwh) FROM readings WHERE {mtd_where}"
         ), mtd_params)).first()
