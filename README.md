@@ -146,28 +146,50 @@ The codebase makes no assumption about which path you pick. It just needs a Post
 
 ## Deployment
 
-### Cloud — Vercel (frontend) + Vultr (backend) + Supabase (Postgres)
+The default cloud path is **Vercel** (frontend) + **Fly.io** (backend) + **Supabase** (Postgres). Backend is containerised — `backend/Dockerfile` and `backend/fly.toml` are committed. A `.github/workflows/deploy.yml` redeploys the backend to Fly on every push to `main`.
 
-**Supabase**
-1. Create a Supabase project; copy the connection string (Settings → Database)
-2. URL goes into `DATABASE_URL` as `postgresql+asyncpg://postgres:[password]@db.xxx.supabase.co:5432/postgres`
+### 1. Supabase (Postgres)
 
-**Vultr (or any VPS — Hetzner / Fly.io / Railway also fine)**
-1. `ssh` in, install Python 3.12 + git + nginx
-2. Clone the repo, `cd backend`, create venv, `pip install -r requirements.txt`
-3. Set env vars in a `.env` file (see table above)
-4. Run alembic to create the schema: `alembic upgrade head`
-5. Start the API behind a process manager (systemd / pm2 / docker) — `uvicorn main:app --host 0.0.0.0 --port 8000`
-6. nginx reverse-proxy from your domain → `127.0.0.1:8000`, terminate TLS via Let's Encrypt
-7. Set `ENVIRONMENT=production` and `ALLOWED_ORIGINS=https://your-frontend.vercel.app`
+1. Create a project at <https://supabase.com>.
+2. Settings → Database → **Connection string** → URI. Looks like `postgresql://postgres:[password]@db.xxx.supabase.co:5432/postgres`.
+3. Replace the scheme so SQLAlchemy/asyncpg picks it up: `postgresql+asyncpg://postgres:[password]@db.xxx.supabase.co:5432/postgres`. Save it for step 2.
 
-**Vercel**
-1. Import the repo, point to `frontend/` as the root
-2. Build command `npm run build`, output `dist`
-3. Add env var `VITE_API_URL=https://your-api.example.com`
-4. Deploy. Vercel auto-builds on `main`.
+### 2. Fly.io (backend)
+
+```bash
+brew install flyctl                       # or: curl -L https://fly.io/install.sh | sh
+flyctl auth signup                        # or login if you already have an account
+cd backend
+# Edit `app = "watt-api"` in fly.toml to something unique to you.
+flyctl apps create <your-app-name>
+
+# Generate prod secrets locally and push them to Fly:
+SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+flyctl secrets set \
+  DATABASE_URL='postgresql+asyncpg://postgres:[password]@db.xxx.supabase.co:5432/postgres' \
+  SECRET_KEY="$SECRET_KEY" \
+  ENCRYPTION_KEY="$ENCRYPTION_KEY" \
+  ALLOWED_ORIGINS='https://your-frontend.vercel.app'
+
+flyctl deploy
+```
+
+The first deploy runs `alembic upgrade head` automatically (see the Dockerfile `CMD`). Health check hits `/api/health`. After deploy, the API is at `https://<your-app-name>.fly.dev`.
+
+To enable auto-deploy from GitHub: `flyctl auth token` → paste into the repo's GitHub **Settings → Secrets → Actions** as `FLY_API_TOKEN`. Push to `main` now triggers `.github/workflows/deploy.yml`.
+
+### 3. Vercel (frontend)
+
+1. Import the repo at <https://vercel.com/new>.
+2. **Root directory** → `frontend`. Framework auto-detected (Vite).
+3. **Environment variables** → `VITE_API_URL = https://<your-app-name>.fly.dev`.
+4. Deploy. Vercel auto-rebuilds on every push to `main`.
+
+Update the Fly secret `ALLOWED_ORIGINS` to match whatever Vercel domain you end up with (preview and prod), comma-separated.
 
 ### Single-box self-host
+
 The simpler path: install Postgres locally, run uvicorn under systemd, serve the built frontend via nginx. One machine, no cloud accounts.
 
 ```bash

@@ -1,0 +1,12 @@
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+energy.db
+energy.db-journal
+.env
+.env.local
+.env.staging
+tests
+requirements-dev.txt
+pyproject.toml
