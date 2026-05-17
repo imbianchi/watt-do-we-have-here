@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Auth } from '../lib/api'
 import { setToken, setStoredUser } from '../lib/auth'
+import PasswordInput from '../components/PasswordInput'
 
 function passwordStrength(p) {
   if (!p) return { score: 0, label: '—', color: 'bg-gray-600' }
@@ -63,19 +64,22 @@ export default function RegisterPage() {
             <span className="text-xs text-gray-400 uppercase tracking-wider">Name</span>
             <input type="text" required autoFocus value={name}
                    onChange={(e) => setName(e.target.value)}
+                   autoComplete="name"
                    className="input" maxLength={100} />
           </label>
           <label className="flex flex-col gap-1.5">
             <span className="text-xs text-gray-400 uppercase tracking-wider">Email</span>
             <input type="email" required value={email}
                    onChange={(e) => setEmail(e.target.value)}
+                   autoComplete="email"
                    className="input" />
           </label>
           <label className="flex flex-col gap-1.5">
             <span className="text-xs text-gray-400 uppercase tracking-wider">Password</span>
-            <input type="password" required value={password}
-                   onChange={(e) => setPassword(e.target.value)}
-                   minLength={8} maxLength={128} className="input" />
+            <PasswordInput value={password} required
+                           onChange={(e) => setPassword(e.target.value)}
+                           minLength={8} maxLength={128}
+                           autoComplete="new-password" />
             <div className="flex items-center gap-2 mt-1">
               <div className="flex-1 h-1 rounded-full bg-line overflow-hidden">
                 <div className={`h-full transition-all ${strength.color}`}
@@ -99,12 +103,6 @@ export default function RegisterPage() {
         <div className="mt-6 text-center text-xs text-gray-500">
           Have an account? <Link to="/login" className="text-primary hover:underline">Sign in</Link>
         </div>
-        <style>{`
-          .input { background:#0a0a0f; border:1px solid #1e1e2e; border-radius:0.5rem;
-                   padding:0.625rem 0.875rem; font-size:0.875rem; color:#e5e7eb; outline:none;
-                   transition: border-color 150ms; }
-          .input:focus { border-color:#6366f1; }
-        `}</style>
       </div>
     </div>
   )

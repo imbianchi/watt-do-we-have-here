@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Auth } from '../lib/api'
 import { setToken, setStoredUser } from '../lib/auth'
+import PasswordInput from '../components/PasswordInput'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -39,13 +40,14 @@ export default function LoginPage() {
             <span className="text-xs text-gray-400 uppercase tracking-wider">Email</span>
             <input type="email" required autoFocus value={email}
                    onChange={(e) => setEmail(e.target.value)}
+                   autoComplete="email"
                    className="input" />
           </label>
           <label className="flex flex-col gap-1.5">
             <span className="text-xs text-gray-400 uppercase tracking-wider">Password</span>
-            <input type="password" required value={password}
-                   onChange={(e) => setPassword(e.target.value)}
-                   className="input" />
+            <PasswordInput value={password} required
+                           onChange={(e) => setPassword(e.target.value)}
+                           autoComplete="current-password" />
           </label>
           {error && (
             <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-2.5">
@@ -61,12 +63,6 @@ export default function LoginPage() {
         <div className="mt-6 text-center text-xs text-gray-500">
           No account? <Link to="/register" className="text-primary hover:underline">Create one</Link>
         </div>
-        <style>{`
-          .input { background:#0a0a0f; border:1px solid #1e1e2e; border-radius:0.5rem;
-                   padding:0.625rem 0.875rem; font-size:0.875rem; color:#e5e7eb; outline:none;
-                   transition: border-color 150ms; }
-          .input:focus { border-color:#6366f1; }
-        `}</style>
       </div>
     </div>
   )

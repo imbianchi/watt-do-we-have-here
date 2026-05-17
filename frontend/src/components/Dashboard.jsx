@@ -199,6 +199,9 @@ export default function Dashboard() {
 function Header({ lastUpdated, connected, agg, activeAlerts, user, onLogout }) {
   const totalW = useTween(agg?.total_power_watts || 0, 600)
   const ago = lastUpdated ? relativeTime(lastUpdated) : null
+  // Only show the API indicator when there are devices being polled — without
+  // any device, "Connected" reads as if a device is connected, which it isn't.
+  const showApiStatus = (agg?.device_count ?? 0) > 0 || !connected
   return (
     <header className="mb-6 flex items-start md:items-center justify-between gap-4 flex-wrap">
       <div>
@@ -219,10 +222,13 @@ function Header({ lastUpdated, connected, agg, activeAlerts, user, onLogout }) {
             ⚠ {activeAlerts} alert{activeAlerts > 1 ? 's' : ''}
           </span>
         )}
-        <div className="flex items-center gap-1.5">
-          <span className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
-          <span className="text-gray-400">{connected ? 'Connected' : 'Offline'}</span>
-        </div>
+        {showApiStatus && (
+          <div className="flex items-center gap-1.5"
+               title={connected ? 'Backend reachable, polling every 5s' : 'Backend unreachable'}>
+            <span className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
+            <span className="text-gray-400">{connected ? 'API' : 'Offline'}</span>
+          </div>
+        )}
         {ago && (
           <span className="text-gray-500" title={lastUpdated.toLocaleString()}>{ago}</span>
         )}

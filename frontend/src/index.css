@@ -27,3 +27,17 @@ body {
 .scroll-x::-webkit-scrollbar { height: 6px }
 .scroll-x::-webkit-scrollbar-thumb { @apply bg-line rounded-full }
 .scroll-x::-webkit-scrollbar-track { background: transparent }
+
+/* Auth form inputs (shared between Login and Register) */
+.input {
+  background: #0a0a0f;
+  border: 1px solid #1e1e2e;
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  color: #e5e7eb;
+  outline: none;
+  transition: border-color 150ms;
+  width: 100%;
+}
+.input:focus { border-color: #6366f1; }
