@@ -30,7 +30,10 @@ elif db_url.startswith("sqlite+aiosqlite"):
     sync_url = db_url.replace("sqlite+aiosqlite", "sqlite")
 else:
     sync_url = db_url
-config.set_main_option("sqlalchemy.url", sync_url)
+# alembic feeds the URL through configparser, which treats `%` as interpolation
+# syntax. URL-encoded passwords (e.g. `%40` for `@`) blow up unless we double
+# the percent signs so configparser collapses them back to a single `%`.
+config.set_main_option("sqlalchemy.url", sync_url.replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
