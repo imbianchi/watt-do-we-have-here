@@ -3,10 +3,27 @@
 @tailwind utilities;
 
 body {
-  @apply bg-gray-950 text-gray-100 font-sans antialiased;
+  @apply bg-app text-gray-100 font-sans antialiased;
   min-height: 100vh;
 }
 
 * {
   box-sizing: border-box;
 }
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(90deg, #1a1a26 0%, #25253a 50%, #1a1a26 100%);
+  background-size: 700px 100%;
+  @apply animate-shimmer rounded-md;
+}
+
+/* Card preset */
+.card {
+  @apply bg-card border border-white/5 rounded-2xl shadow-lg;
+}
+
+/* Hide native scrollbar but keep scrollable */
+.scroll-x::-webkit-scrollbar { height: 6px }
+.scroll-x::-webkit-scrollbar-thumb { @apply bg-line rounded-full }
+.scroll-x::-webkit-scrollbar-track { background: transparent }
